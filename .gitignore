@@ -1,3 +1,7 @@
+# Project-specific
+redis-*
+dump.rdb
+
 # Logs
 logs
 *.log
