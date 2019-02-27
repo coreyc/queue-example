@@ -16,6 +16,7 @@ client.on('error', err => {
 })
 
 const pushToQueue = (list, data) => {
+  // don't await, just let it do its thing
   rpush(list, data)
 }
 
@@ -29,4 +30,4 @@ pushToQueue('test', 'world')
 setInterval(async () => {
   const todo = await getFromQueue('test', 'worker')
   console.log('todo:', todo)
-}, 3000);
+}, 3000)
