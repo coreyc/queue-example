@@ -24,10 +24,10 @@ const getFromQueue = async (list, otherList) => {
   return await rpoplpush(list, otherList)
 }
 
-pushToQueue('test', 'hello')
-pushToQueue('test', 'world')
+pushToQueue('todo_queue', 'hello')
+pushToQueue('todo_queue', 'world')
 
 setInterval(async () => {
-  const todo = await getFromQueue('test', 'worker')
+  const todo = await getFromQueue('todo_queue', 'work_queue')
   console.log('todo:', todo)
 }, 3000)
