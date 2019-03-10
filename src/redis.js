@@ -29,24 +29,36 @@ const pushToQueue = async (list, data) => {
 // TODO: explain why lifo/filo
 
 // consumer / worker
+// generic function to handle multiple different queues
+// we might have one queue for one type of task, another for a diff type of task
+// and to be clear, we're not storing the task itself, we just store the task (or message) data
+// processing queue name would not necessarily need to be aligned with that, but probably a good idea
 const getWork = async (queue, processingQueue) => {
   try {
     // this removes from work/todo queue
-    return await rpoplpush(queue, processingQueue).catch(e => {console.log(`Error getting from queue: ${e}`)})
-    // this removes from processing queue, or should we do this after it's been processed?
-    // await lrem(workQueue, workItem)
+    return await rpoplpush(queue, processingQueue)
   } catch(e) {
-    console.error(`Error getting the work item: ${e}`)
+    console.error(`Error getting the work: ${e}`)
   }
 }
 
-for (let i = 0; i < 50; i++) {
+const doWork = async (workItem, processingQueue) => {
+  try {
+    await insert('books', workItem, 'isbn_default')
+    await lrem(processingQueue, 1, workItem)
+  } catch(e) {
+    console.error(`Error doing the work: ${e}`)
+  }
+}
+
+for (let i = 0; i <= 50; i++) {
   pushToQueue('work_queue', i)
 }
 
+// TODO: best way to poll for them? what if doWork takes longer than the interval?
 setInterval(async () => {
-  const todo = await getWork('work_queue', 'processing_queue')
-  // TODO: insert into DB
-  await insert('books', todo, 'isbn_default')
-  console.log('popped from queue:', todo)
+  const workItem = await getWork('work_queue', 'processing_queue')
+  await doWork(workItem, 'processing_queue')
+  
+  console.log('popped from queue:', workItem)
 }, 3000)
