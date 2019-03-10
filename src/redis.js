@@ -7,6 +7,10 @@ const {insert} = require('./db')
 const rpush = promisify(client.rpush).bind(client)
 const rpoplpush = promisify(client.rpoplpush).bind(client)
 const lrem = promisify(client.lrem).bind(client)
+const lrange = promisify(client.lrange).bind(client)
+
+const WORK_QUEUE = 'work_queue'
+const PROCESSING_QUEUE = 'processing_queue'
 
 client.on('connect', () => {
   console.log('Redis client connected')
@@ -51,14 +55,30 @@ const doWork = async (workItem, processingQueue) => {
   }
 }
 
-for (let i = 0; i <= 50; i++) {
-  pushToQueue('work_queue', i)
+const getQueueLength = async (queueName) => {
+  return await lrange(queueName, 0, -1)
 }
 
-// TODO: best way to poll for them? what if doWork takes longer than the interval?
-setInterval(async () => {
-  const workItem = await getWork('work_queue', 'processing_queue')
-  await doWork(workItem, 'processing_queue')
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+const run = (async() => {
+  // producer - seed the queue
+  for (let i = 0; i <= 20; i++) {
+    await pushToQueue(WORK_QUEUE, i)
+  }
   
-  console.log('popped from queue:', workItem)
-}, 3000)
+  // consumer - do the work
+  let queueHasWork = await getQueueLength(WORK_QUEUE)
+  while (queueHasWork.length) {
+    await sleep(500)
+
+    const workItem = await getWork(WORK_QUEUE, PROCESSING_QUEUE)
+    await doWork(workItem, PROCESSING_QUEUE)
+    
+    console.log('completed work item:', workItem)
+    queueHasWork = await getQueueLength(WORK_QUEUE)
+  }
+
+  // just for demo purposes, to close out
+  process.exit()
+})()
