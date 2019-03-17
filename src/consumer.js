@@ -4,7 +4,6 @@ const client = redis.createClient()
 
 const {insert} = require('./db')
 
-const rpush = promisify(client.rpush).bind(client)
 const rpoplpush = promisify(client.rpoplpush).bind(client)
 const lrem = promisify(client.lrem).bind(client)
 const lrange = promisify(client.lrange).bind(client)
@@ -17,20 +16,15 @@ client.on('connect', () => {
 })
 
 client.on('error', err => {
-  console.log(`Something went wrong: ${err}`)
+  console.log(`Redis client connection error: ${err}`)
 })
 
-// producer
-const pushToQueue = async (list, data) => {
-  try {
-    await rpush(list, data)
-  } catch(e) {
-    console.error(`Error pushing to queue: ${e}`)
-  }
-}
+// TODO: handling of catching errors
+// TODO: explain fifo in blog post
+// TODO: is polling method the best way? try blocking
+// TODO: queue diagram (how it fills up), worker on different server
+// example of item object
 
-
-// TODO: explain why lifo/filo
 
 // consumer / worker
 // generic function to handle multiple different queues
@@ -42,40 +36,53 @@ const getWork = async (queue, processingQueue) => {
     // this removes from work/todo queue
     return await rpoplpush(queue, processingQueue)
   } catch(e) {
-    console.error(`Error getting the work: ${e}`)
+    throw new Error(e)
   }
 }
 
 const doWork = async (workItem, processingQueue) => {
+  const {itemNum, isbn} = JSON.parse(workItem)
+
   try {
-    await insert('books', workItem, 'isbn_default')
+    // if insert fails, lrem won't be called and it won't be removed from processingQueue
+    // would need another worker to watch processing queue and if items there for a while, run them again
+    await insert('books', itemNum, isbn)
     await lrem(processingQueue, 1, workItem)
   } catch(e) {
-    console.error(`Error doing the work: ${e}`)
+    throw new Error(e)
   }
 }
 
+// will return an array
 const getQueueLength = async (queueName) => {
+  // don't care about error, if no length work will just queue up
   return await lrange(queueName, 0, -1)
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const run = (async() => {
-  // producer - seed the queue
-  for (let i = 0; i <= 20; i++) {
-    await pushToQueue(WORK_QUEUE, i)
-  }
-  
+const run = (async() => {  
   // consumer - do the work
   let queueHasWork = await getQueueLength(WORK_QUEUE)
   while (queueHasWork.length) {
+    // not necessary, just to be able to see the console logging more easily
     await sleep(500)
 
-    const workItem = await getWork(WORK_QUEUE, PROCESSING_QUEUE)
-    await doWork(workItem, PROCESSING_QUEUE)
+    let workItem
+
+    try {
+      workItem = await getWork(WORK_QUEUE, PROCESSING_QUEUE)
+    } catch(e) {
+      console.error(`Error getting work item from ${PROCESSING_QUEUE} queue: ${e}`)
+    }
+
+    try {
+      await doWork(workItem, PROCESSING_QUEUE)
+      console.log(`completed work item: ${workItem}`)
+    } catch(e) {
+      console.error(`Error doing work from ${PROCESSING_QUEUE} queue: ${e}`)
+    }
     
-    console.log('completed work item:', workItem)
     queueHasWork = await getQueueLength(WORK_QUEUE)
   }
 
