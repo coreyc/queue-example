@@ -15,9 +15,9 @@ client.on('error', err => {
 })
 
 // producer
-const pushToQueue = async (list, data) => {
+const pushToQueue = async (queueName, data) => {
   try {
-    await lpush(list, data)
+    await lpush(queueName, data)
   } catch(e) {
     console.error(`Error pushing to queue: ${e}`)
   }
@@ -35,3 +35,7 @@ const run = (async() => {
   // just for demo purposes, to close out
   process.exit()
 })()
+
+module.exports = {
+  pushToQueue
+}

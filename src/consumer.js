@@ -2,6 +2,7 @@ const {promisify} = require('util')
 const redis = require('redis')
 const client = redis.createClient()
 
+const {pushToQueue} = require('./producer')
 const {insert} = require('./db')
 
 const rpoplpush = promisify(client.rpoplpush).bind(client)
@@ -19,22 +20,38 @@ client.on('error', err => {
   console.log(`Redis client connection error: ${err}`)
 })
 
-// TODO: handling of catching errors
-// TODO: explain fifo in blog post
 // TODO: is polling method the best way? try blocking
 // TODO: queue diagram (how it fills up), worker on different server
-// example of item object
-
 
 // consumer / worker
 // generic function to handle multiple different queues
 // we might have one queue for one type of task, another for a diff type of task
 // and to be clear, we're not storing the task itself, we just store the task (or message) data
 // processing queue name would not necessarily need to be aligned with that, but probably a good idea
-const getWork = async (queue, processingQueue) => {
+const peek = async (queueName) => {
+  // returns first item without popping it
+  return await lrange(queueName, 0, 0)
+}
+
+const checkStales = async (queueName, timeout) => {
+  const item = await peek(queueName)
+
+  if (!item.timestamp) return null
+
+  const timeSpentInQueue = Date.now() - item.timestamp
+
+  if (timeSpentInQueue > timeout) {
+    // if it fails, next consumer will try again, no try/catch needed
+    return await pushToQueue(queueName, item) // requeue for processing by consumers
+  }
+
+  return null
+}
+
+const getWork = async (workQueue, processingQueue) => {
   try {
     // this removes from work/todo queue
-    return await rpoplpush(queue, processingQueue)
+    return await rpoplpush(workQueue, processingQueue)
   } catch(e) {
     throw new Error(e)
   }
@@ -62,9 +79,12 @@ const getQueueLength = async (queueName) => {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const run = (async() => {  
-  // consumer - do the work
-  let queueHasWork = await getQueueLength(WORK_QUEUE)
-  while (queueHasWork.length) {
+  // first, check stale items in processing queue
+  await checkStales(WORK_QUEUE, 120000) // 2 minute stale time
+
+  // next, do work stuff
+  let workQueueHasWork = await getQueueLength(WORK_QUEUE)
+  while (workQueueHasWork.length) {
     // not necessary, just to be able to see the console logging more easily
     await sleep(500)
 
@@ -85,7 +105,4 @@ const run = (async() => {
     
     queueHasWork = await getQueueLength(WORK_QUEUE)
   }
-
-  // just for demo purposes, to close out
-  process.exit()
 })()
