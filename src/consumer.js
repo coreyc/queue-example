@@ -73,14 +73,9 @@ const getQueueLength = async (queueName) => {
   return await lrange(queueName, 0, -1)
 }
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-
 const run = (async() => {
   // first, check stale items in processing queue
   await checkStales(WORK_QUEUE, 120000) // 2 minute stale time
-
-  // this was screwing up brpoplpush
-  // await sleep(5000)
 
   let workItem
 
