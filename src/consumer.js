@@ -20,9 +20,6 @@ client.on('error', err => {
   console.log(`Redis client connection error: ${err}`)
 })
 
-// TODO: is polling method the best way? try blocking
-// TODO: queue diagram (how it fills up), worker on different server
-
 // consumer / worker
 // generic function to handle multiple different queues
 // we might have one queue for one type of task, another for a diff type of task
