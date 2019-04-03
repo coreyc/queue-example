@@ -2,7 +2,7 @@ const {promisify} = require('util')
 const redis = require('redis')
 const client = redis.createClient()
 
-const {pushToQueue} = require('./producer')
+const {pushToQueue} = require('./util')
 const {insert} = require('./db')
 
 const rpoplpush = promisify(client.rpoplpush).bind(client)
@@ -77,10 +77,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const run = (async() => {  
   // first, check stale items in processing queue
-  await checkStales(WORK_QUEUE, 120000) // 2 minute stale time
+  await checkStales(PROCESSING_QUEUE, 120000) // 2 minute stale time
 
   // next, do work stuff
   let workQueueHasWork = await getQueueLength(WORK_QUEUE)
+  console.log(workQueueHasWork.length)
   while (workQueueHasWork.length) {
     // not necessary, just to be able to see the console logging more easily
     await sleep(500)
@@ -100,6 +101,8 @@ const run = (async() => {
       console.error(`Error doing work from ${PROCESSING_QUEUE} queue: ${e}`)
     }
     
-    queueHasWork = await getQueueLength(WORK_QUEUE)
+    workQueueHasWork = await getQueueLength(WORK_QUEUE)
   }
+
+  process.exit()
 })()
