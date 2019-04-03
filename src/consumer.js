@@ -2,7 +2,7 @@ const {promisify} = require('util')
 const redis = require('redis')
 const client = redis.createClient()
 
-const {pushToQueue} = require('./producer')
+const {pushToQueue} = require('./util')
 const {insert} = require('./db')
 
 const brpoplpush = promisify(client.brpoplpush).bind(client)
@@ -18,6 +18,10 @@ client.on('connect', () => {
 
 client.on('error', err => {
   console.log(`Redis client connection error: ${err}`)
+})
+
+client.on('data', data => {
+  console.log(`consumer received ${data}`)
 })
 
 // consumer / worker
@@ -67,15 +71,9 @@ const doWork = async (workItem, processingQueue) => {
   }
 }
 
-// will return an array
-const getQueueLength = async (queueName) => {
-  // don't care about error, if no length work will just queue up
-  return await lrange(queueName, 0, -1)
-}
-
 const run = (async() => {
   // first, check stale items in processing queue
-  await checkStales(WORK_QUEUE, 120000) // 2 minute stale time
+  await checkStales(PROCESSING_QUEUE, 120000) // 2 minute stale time
 
   let workItem
 
