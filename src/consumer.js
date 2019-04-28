@@ -81,9 +81,8 @@ const run = (async() => {
 
   // next, do work stuff
   let workQueueHasWork = await getQueueLength(WORK_QUEUE)
-  console.log(workQueueHasWork.length)
   while (workQueueHasWork.length) {
-    // not necessary, just to be able to see the console logging more easily
+    // not necessary, just to be able to see the console logging output more easily
     await sleep(500)
 
     let workItem
