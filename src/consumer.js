@@ -68,9 +68,9 @@ const doWork = async (workItem, processingQueue) => {
 }
 
 // will return an array
-const getQueueLength = async (queueName) => {
+const checkQueueHasItems = async (queueName) => {
   // don't care about error, if no length work will just queue up
-  return await lrange(queueName, 0, -1)
+  return !!(await lrange(queueName, 0, -1)).length
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -80,8 +80,8 @@ const run = (async() => {
   await checkStales(PROCESSING_QUEUE, 120000) // 2 minute stale time
 
   // next, do work stuff
-  let workQueueHasWork = await getQueueLength(WORK_QUEUE)
-  while (workQueueHasWork.length) {
+  let workQueueHasItems = await checkQueueHasItems(WORK_QUEUE)
+  while (workQueueHasItems) {
     // not necessary, just to be able to see the console logging output more easily
     await sleep(500)
 
@@ -100,7 +100,7 @@ const run = (async() => {
       console.error(`Error doing work from ${PROCESSING_QUEUE} queue: ${e}`)
     }
     
-    workQueueHasWork = await getQueueLength(WORK_QUEUE)
+    workQueueHasItems = await getQueueLength(WORK_QUEUE)
   }
 
   process.exit()
