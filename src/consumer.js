@@ -47,7 +47,7 @@ const checkStales = async (queueName, timeout) => {
 
 const getWork = async (workQueue, processingQueue) => {
   try {
-    // this removes from work/todo queue
+    // this removes from work queue
     return await rpoplpush(workQueue, processingQueue)
   } catch(e) {
     throw new Error(e)
