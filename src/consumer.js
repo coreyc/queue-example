@@ -26,7 +26,7 @@ client.on('error', err => {
 // and to be clear, we're not storing the task itself, we just store the task (or message) data
 // processing queue name would not necessarily need to be aligned with that, but probably a good idea
 const peek = async (queueName) => {
-  // returns first item without popping it
+  // returns first item data without popping it
   return await lrange(queueName, 0, 0)
 }
 
