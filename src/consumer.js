@@ -27,19 +27,42 @@ client.on('error', err => {
 // processing queue name would not necessarily need to be aligned with that, but probably a good idea
 const peek = async (queueName) => {
   // returns first item data without popping it
-  return await lrange(queueName, 0, 0)
+  const item = await lrange(queueName, 0, 0)
+
+  if (item.length) {
+    // lrange returns array of one item, so we need to return the item, not the array
+    const itemFromArray = item[0]
+    return JSON.parse(itemFromArray)
+  }
+
+  return null
 }
 
-const checkStales = async (queueName, timeout) => {
-  const item = await peek(queueName)
+const requeue = async (workQueue, processingQueue, workItem) => {
+  const stringifiedWorkItem = JSON.stringify(workItem)
 
-  if (!item.timestamp) return null
+  try {
+    await client
+      .multi()
+      .lpush(workQueue, stringifiedWorkItem)
+      .lrem(processingQueue, 1, stringifiedWorkItem)
+      .exec()
+  } catch(e) {
+    throw new Error(e)
+  }
+}
 
-  const timeSpentInQueue = Date.now() - item.timestamp
+const checkStales = async (workQueue, processingQueue, timeout) => {
+  const processingQueueItem = await peek(processingQueue)
+
+  if (!processingQueueItem || !processingQueueItem.timestamp) return null
+
+  const timeSpentInQueue = Date.now() - processingQueueItem.timestamp
 
   if (timeSpentInQueue > timeout) {
+    console.log('hit')
     // if it fails, next consumer will try again, no try/catch needed
-    return await pushToQueue(queueName, item) // requeue for processing by consumers
+    return await requeue(workQueue, processingQueue, processingQueueItem) // requeue for processing by consumers
   }
 
   return null
@@ -76,12 +99,12 @@ const checkQueueHasItems = async (queueName) => {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const run = (async() => {  
-  // first, check stale items in processing queue
-  await checkStales(PROCESSING_QUEUE, 120000) // 2 minute stale time
-
-  // next, do work stuff
   let workQueueHasItems = await checkQueueHasItems(WORK_QUEUE)
+
   while (workQueueHasItems) {
+     // first, check stale items in processing queue
+    await checkStales(WORK_QUEUE, PROCESSING_QUEUE, 120000) // 2 minute stale time
+    
     // not necessary, just to be able to see the console logging output more easily
     await sleep(500)
 
@@ -100,7 +123,7 @@ const run = (async() => {
       console.error(`Error doing work from ${PROCESSING_QUEUE} queue: ${e}`)
     }
     
-    workQueueHasItems = await getQueueLength(WORK_QUEUE)
+    workQueueHasItems = await checkQueueHasItems(WORK_QUEUE)
   }
 
   process.exit()

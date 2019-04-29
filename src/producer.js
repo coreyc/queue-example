@@ -18,7 +18,8 @@ const run = (async() => {
   for (let i = 1; i <= 20; i++) {
     await pushToQueue(WORK_QUEUE, JSON.stringify({
       itemNum: i,
-      isbn: 'default'
+      isbn: 'default',
+      timestamp: Date.now()
     }))
   }
 
