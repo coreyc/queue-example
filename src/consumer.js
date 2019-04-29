@@ -60,7 +60,6 @@ const checkStales = async (workQueue, processingQueue, timeout) => {
   const timeSpentInQueue = Date.now() - processingQueueItem.timestamp
 
   if (timeSpentInQueue > timeout) {
-    console.log('hit')
     // if it fails, next consumer will try again, no try/catch needed
     return await requeue(workQueue, processingQueue, processingQueueItem) // requeue for processing by consumers
   }
