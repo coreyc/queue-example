@@ -1,0 +1,1 @@
+CREATE TABLE books (book_number int, isbn text)
