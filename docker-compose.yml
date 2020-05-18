@@ -1,0 +1,22 @@
+version: '3.7'
+services:
+  redis_queue:
+    image: redis:5.0.6
+    container_name: redis_queue
+    ports:
+      - 6379:6379
+  db_queue:
+    image: postgres:9.6.17
+    container_name: db_queue
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+volumes:
+  db-data:

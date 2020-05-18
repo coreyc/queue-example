@@ -1,2 +1,1 @@
-redis-5.0.3/src/redis-cli del work_queue
-redis-5.0.3/src/redis-cli del processing_queue
+docker-compose exec redis_queue bash && redis-cli && 'del work_queue' && 'del processing_queue' && exit

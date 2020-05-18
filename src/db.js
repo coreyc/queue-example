@@ -1,10 +1,12 @@
 const { Client } = require('pg')
 
 const getConnection = () => {
+  // normally you'd use env vars for this, just skipping that step here for demo purposes
   return {
     host: 'localhost',
-    database: 'books',
-    password: null,
+    database: 'library',
+    user: 'root',
+    password: 'password',
     port: 5432
   }
 }

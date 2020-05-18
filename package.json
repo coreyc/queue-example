@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "description": "Project demonstrating using Redis for queues in Node",
   "main": "index.js",
+  "scripts": {
+    "test": "mocha ./tests/**/*.test.js"
+  },
   "dependencies": {
     "pg": "^7.8.2",
     "redis": "^2.8.0"
   },
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^7.1.2",
+    "sinon": "^9.0.2"
   },
   "keywords": [
     "redis",

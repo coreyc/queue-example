@@ -2,22 +2,23 @@ const {promisify} = require('util')
 const redis = require('redis')
 const client = redis.createClient()
 
-const {pushToQueue} = require('./util')
 const {insert} = require('./db')
 
 const rpoplpush = promisify(client.rpoplpush).bind(client)
 const lrem = promisify(client.lrem).bind(client)
 const lrange = promisify(client.lrange).bind(client)
 
-const WORK_QUEUE = 'work_queue'
-const PROCESSING_QUEUE = 'processing_queue'
-
 client.on('connect', () => {
   console.log('Redis client connected')
 })
 
 client.on('error', err => {
-  console.log(`Redis client connection error: ${err}`)
+  console.error(`Redis client connection error: ${err}`)
+})
+
+client.on('uncaughtException', err => {
+  console.error(`There was an uncaught error: ${err}`)
+  process.exit(1)
 })
 
 // consumer / worker
@@ -76,14 +77,13 @@ const getWork = async (workQueue, processingQueue) => {
   }
 }
 
-const doWork = async (workItem, processingQueue) => {
+const doWork = async (workItem) => {
   const {itemNum, isbn} = JSON.parse(workItem)
 
   try {
     // if insert fails, lrem won't be called and it won't be removed from processingQueue
     // would need another worker to watch processing queue and if items there for a while, run them again
     await insert('books', itemNum, isbn)
-    await lrem(processingQueue, 1, workItem)
   } catch(e) {
     throw new Error(e)
   }
@@ -97,12 +97,12 @@ const checkQueueHasItems = async (queueName) => {
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const run = (async() => {  
-  let workQueueHasItems = await checkQueueHasItems(WORK_QUEUE)
+const consume = async (doWork, workQueue, processingQueue, exit = () => {}) => {  
+  let workQueueHasItems = await checkQueueHasItems(workQueue)
 
   while (workQueueHasItems) {
      // first, check stale items in processing queue
-    await checkStales(WORK_QUEUE, PROCESSING_QUEUE, 120000) // 2 minute stale time
+    await checkStales(workQueue, processingQueue, 120000) // 2 minute stale time
     
     // not necessary, just to be able to see the console logging output more easily
     await sleep(500)
@@ -110,20 +110,26 @@ const run = (async() => {
     let workItem
 
     try {
-      workItem = await getWork(WORK_QUEUE, PROCESSING_QUEUE)
+      workItem = await getWork(workQueue, processingQueue)
     } catch(e) {
-      console.error(`Error getting work item from ${PROCESSING_QUEUE} queue: ${e}`)
+      console.error(`Error getting work item from ${processingQueue} queue: ${e}`)
     }
 
     try {
-      await doWork(workItem, PROCESSING_QUEUE)
+      await doWork(workItem)
       console.log(`completed work item: ${workItem}`)
+      await lrem(processingQueue, 1, workItem)
     } catch(e) {
-      console.error(`Error doing work from ${PROCESSING_QUEUE} queue: ${e}`)
+      console.error(e)
     }
     
-    workQueueHasItems = await checkQueueHasItems(WORK_QUEUE)
+    workQueueHasItems = await checkQueueHasItems(workQueue)
   }
 
-  process.exit()
-})()
+  exit()
+}
+
+module.exports = {
+  consume,
+  doWork
+}
