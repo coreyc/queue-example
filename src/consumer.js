@@ -77,14 +77,13 @@ const getWork = async (workQueue, processingQueue) => {
   }
 }
 
-const doWork = async (workItem, processingQueue) => {
+const doWork = async (workItem) => {
   const {itemNum, isbn} = JSON.parse(workItem)
 
   try {
     // if insert fails, lrem won't be called and it won't be removed from processingQueue
     // would need another worker to watch processing queue and if items there for a while, run them again
     await insert('books', itemNum, isbn)
-    await lrem(processingQueue, 1, workItem)
   } catch(e) {
     throw new Error(e)
   }
@@ -117,10 +116,11 @@ const consume = async (doWork, workQueue, processingQueue, exit = () => {}) => {
     }
 
     try {
-      await doWork(workItem, processingQueue)
+      await doWork(workItem)
       console.log(`completed work item: ${workItem}`)
+      await lrem(processingQueue, 1, workItem)
     } catch(e) {
-      console.error(`Error doing work from ${processingQueue} queue: ${e}`)
+      console.error(e)
     }
     
     workQueueHasItems = await checkQueueHasItems(workQueue)

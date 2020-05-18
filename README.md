@@ -5,6 +5,8 @@
 ### Setup Redis and Postgres
 Run `docker-compose up` to create a Redis instance and a Postgres instance (which includes our schema too)
 
+And to bring these services down, including the database volume: `docker-compose down -v`
+
 ### Run producer
 From the root of the project, do `node src/producer.js`. This will insert some work items into Redis
 
