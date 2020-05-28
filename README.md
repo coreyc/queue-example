@@ -1,5 +1,8 @@
 # queue-example
 
+## Info
+Companion repo for blogpost I wrote "Understand how to approach designing queues in Node" https://www.coreycleary.me/understand-how-to-approach-designing-queues-in-node/
+
 ## Running
 
 ### Setup Redis and Postgres
